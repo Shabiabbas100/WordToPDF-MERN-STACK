@@ -1,3 +1,5 @@
+require('dotenv').config(); // Load environment variables
+
 const express = require("express");
 const multer = require("multer");
 const cors = require("cors");
@@ -7,7 +9,7 @@ const fs = require("fs");
 const puppeteer = require("puppeteer");
 
 const app = express();
-const Port = process.env.PORT||3000;
+const Port = process.env.PORT || 3000;
 
 app.use(cors());
 
@@ -44,8 +46,11 @@ app.post("/convertFile", upload.single("file"), async (req, res) => {
         // Use Puppeteer to create PDF from HTML
         const browser = await puppeteer.launch({
             headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
+            args: ['--no-sandbox', '--disable-setuid-sandbox'],
+            // Set the executable path to use the cached Chrome if available
+            executablePath: process.env.PUPPETEER_CACHE_DIR ? `${process.env.PUPPETEER_CACHE_DIR}/chrome` : undefined,
         });
+
         const page = await browser.newPage();
         await page.setContent(html, { waitUntil: 'networkidle0' });
         await page.pdf({ path: outputPath, format: 'A4' });
