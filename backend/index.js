@@ -6,15 +6,13 @@ const multer = require("multer");
 const cors =require('cors'); //cors ->to run frontend and backend on same port
 const docxToPDF = require("docx-pdf");
 const path = require("path");
-
 const app = express();
-const port = 3000;
+const Port = process.env.PORT||3000;
 app.use(cors());
 app.get('/', (req, res) => {
   res.send('hey there im shabi abbas')
  
  })
-
 // settting up the file storage
 const storage = multer.diskStorage({
     destination: function(req, file, cb) {   //cb callback function
@@ -59,8 +57,8 @@ app.post("/convertFile", upload.single("file"), (req, res) => {
     }
 });
 
-app.listen(port, () => {
-    console.log(`Server is listening on port ${port}`);
+app.listen(Port, () => {
+    console.log(`Server is listening on port ${Port}`);
 });
 // const storage = multer.diskStorage({
 //     destination: function(req, file, cb) {
