@@ -1,39 +1,27 @@
 const express = require("express");
 const multer = require("multer");
 const cors = require("cors");
-const docxToPDF = require("docx-pdf");
+const mammoth = require("mammoth"); // For converting DOCX to HTML
 const path = require("path");
 const fs = require("fs");
 const puppeteer = require("puppeteer");
 
 const app = express();
-const Port = process.env.PORT || 3000;
+const Port = process.env.PORT||3000;
 
 app.use(cors());
 
 app.get('/', (req, res) => {
-    res.send('hey there, I\'m Shabi Abbas');
+    res.send('Hey there, I’m Shabi Abbas');
 });
-
-// Ensure upload and files directories exist
-const filesDir = path.join(__dirname, 'files');
-const uploadsDir = path.join(__dirname, 'uploads');
-
-if (!fs.existsSync(filesDir)) {
-    fs.mkdirSync(filesDir);
-}
-
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir);
-}
 
 // Setting up the file storage
 const storage = multer.diskStorage({
     destination: function(req, file, cb) {
-        cb(null, uploadsDir);
+        return cb(null, "uploads");
     },
     filename: function(req, file, cb) {
-        cb(null, file.originalname);
+        return cb(null, file.originalname);
     },
 });
 
@@ -45,33 +33,30 @@ app.post("/convertFile", upload.single("file"), async (req, res) => {
             return res.status(400).json({ message: "No file uploaded" });
         }
 
-        const outputPath = path.join(filesDir, `${req.file.originalname}.pdf`);
+        // Defining output file path for PDF
+        let outputPath = path.join(__dirname, "files", `${req.file.originalname.replace('.docx', '.pdf')}`);
 
-        // Use docxToPDF for conversion
-        docxToPDF(req.file.path, outputPath, async (err) => {
-            if (err) {
-                console.log(err);
-                return res.status(500).json({ message: "Error converting docx to pdf" });
-            }
+        // Convert DOCX to HTML
+        const result = await mammoth.convertToHtml({ path: req.file.path });
+        const html = result.value; // The generated HTML
+        const errorMsg = result.messages; // Any messages (warnings)
 
-            // Use Puppeteer to create a PDF
-            const browser = await puppeteer.launch({
-                headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox']
-            });
-            const page = await browser.newPage();
+        // Use Puppeteer to create PDF from HTML
+        const browser = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        const page = await browser.newPage();
+        await page.setContent(html, { waitUntil: 'networkidle0' });
+        await page.pdf({ path: outputPath, format: 'A4' });
+        await browser.close();
 
-            await page.goto(`file://${outputPath}`, { waitUntil: 'networkidle0' });
-            await page.pdf({ path: outputPath, format: 'A4' });
-            await browser.close();
-
-            // Send the PDF file back to the client
-            res.download(outputPath, () => {
-                console.log("file downloaded");
-            });
+        // Send the PDF file back to the client
+        res.download(outputPath, () => {
+            console.log("File downloaded");
         });
     } catch (error) {
-        console.log(error);
+        console.error(error);
         res.status(500).json({ message: "Internal server error" });
     }
 });
@@ -79,9 +64,6 @@ app.post("/convertFile", upload.single("file"), async (req, res) => {
 app.listen(Port, () => {
     console.log(`Server is listening on port ${Port}`);
 });
-
-
-
 
 
 
