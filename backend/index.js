@@ -1,62 +1,68 @@
-
 const express = require("express");
 const multer = require("multer");
-const cors = require("cors"); // cors -> to run frontend and backend on same port
-const docxToPDF = require("docx-pdf"); // Keep this for direct conversion
+const cors = require("cors");
+const docxToPDF = require("docx-pdf");
 const path = require("path");
 const fs = require("fs");
 const puppeteer = require("puppeteer");
+
 const app = express();
-const Port = process.env.PORT||3000;
+const Port = process.env.PORT || 3000;
 
 app.use(cors());
+
 app.get('/', (req, res) => {
-    res.send('hey there im shabi abbas');
+    res.send('hey there, I\'m Shabi Abbas');
 });
+
+// Ensure upload and files directories exist
+const filesDir = path.join(__dirname, 'files');
+const uploadsDir = path.join(__dirname, 'uploads');
+
+if (!fs.existsSync(filesDir)) {
+    fs.mkdirSync(filesDir);
+}
+
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+}
 
 // Setting up the file storage
 const storage = multer.diskStorage({
-    destination: function(req, file, cb) {   // cb callback function
-        return cb(null, "uploads"); // single statement can make return statement omit
+    destination: function(req, file, cb) {
+        cb(null, uploadsDir);
     },
     filename: function(req, file, cb) {
-        return cb(null, file.originalname);
+        cb(null, file.originalname);
     },
 });
 
 const upload = multer({ storage: storage });
+
 app.post("/convertFile", upload.single("file"), async (req, res) => {
     try {
         if (!req.file) {
-            return res.status(400).json({
-                message: "No file uploaded",
-            });
+            return res.status(400).json({ message: "No file uploaded" });
         }
 
-        // Defining output file path
-        let outputPath = path.join(
-            __dirname,
-            "files",
-            `${req.file.originalname}.pdf`
-        );
+        const outputPath = path.join(filesDir, `${req.file.originalname}.pdf`);
 
         // Use docxToPDF for conversion
-        docxToPDF(req.file.path, outputPath, async (err, result) => {
+        docxToPDF(req.file.path, outputPath, async (err) => {
             if (err) {
                 console.log(err);
-                return res.status(500).json({
-                    message: "Error converting docx to pdf",
-                });
+                return res.status(500).json({ message: "Error converting docx to pdf" });
             }
 
-            // Optionally use Puppeteer for further processing, if needed
+            // Use Puppeteer to create a PDF
             const browser = await puppeteer.launch({
-                headless: true, // Run in headless mode
-                args: ['--no-sandbox', '--disable-setuid-sandbox'] // Options for cloud environments
+                headless: true,
+                args: ['--no-sandbox', '--disable-setuid-sandbox']
             });
             const page = await browser.newPage();
-            await page.goto(`file://${outputPath}`); // Navigate to the PDF
-            await page.pdf({ path: outputPath, format: 'A4' }); // This can be customized
+
+            await page.goto(`file://${outputPath}`, { waitUntil: 'networkidle0' });
+            await page.pdf({ path: outputPath, format: 'A4' });
             await browser.close();
 
             // Send the PDF file back to the client
@@ -64,12 +70,9 @@ app.post("/convertFile", upload.single("file"), async (req, res) => {
                 console.log("file downloaded");
             });
         });
-
     } catch (error) {
         console.log(error);
-        res.status(500).json({
-            message: "Internal server error",
-        });
+        res.status(500).json({ message: "Internal server error" });
     }
 });
 
@@ -77,11 +80,8 @@ app.listen(Port, () => {
     console.log(`Server is listening on port ${Port}`);
 });
 
-// Placeholder function for converting DOCX to HTML (if you need it)
-async function convertDocxToHtml(filePath) {
-    // Implement your conversion logic here
-    return '<h1>Converted Content</h1>'; // Example HTML
-}
+
+
 
 
 
