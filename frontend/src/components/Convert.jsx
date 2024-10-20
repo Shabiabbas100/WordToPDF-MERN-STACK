@@ -23,7 +23,7 @@ const Convert = () => {
           formData.append("file", selectedFile);
           try {
             const response = await axios.post(
-              "http://localhost:3000/convertFile",
+              "https://word2pdf-backend.onrender.com/convertFile",
               formData,
               {
                 responseType: "blob", //binary data ->files etc
